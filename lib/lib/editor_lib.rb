@@ -3,6 +3,7 @@ puts "Loading Library..."
 module Editor
   class Window
     def initialize
+    @@files = []
     @@window = Gtk::Window.new(options(:title))
     @@window.signal_connect( "destroy" ) { Gtk.main_quit }
     @@window.set_default_size(options(:width),options(:height))
@@ -44,13 +45,13 @@ class UI < Editor::Window
     }
     save = Gtk::MenuItem.new( "Save" )
     save.signal_connect("activate") {
-      @@statusbar.push(0, 'Saved file: FILENAME')
+      UI.save
     }
     exit = Gtk::MenuItem.new( "Exit" )
     exit.signal_connect("activate") {
       Gtk.main_quit
     }
-    file_menu.append( new_file )
+    #file_menu.append( new_file )
     file_menu.append( open )
     file_menu.append( save )
     file_menu.append( exit )
@@ -71,7 +72,7 @@ class UI < Editor::Window
       about.set_authors(%w{Cyberarm})
       about.set_logo(Gdk::Pixbuf.new("D:/data/code/editor/static/icons/others/tools-hammer_and_nails.png"))
       about.show
-      about.signal_connect( "destroy" ) { Gtk.main_quit }
+      about.signal_connect( "destroy" ) { about.hide }
     }
     exit = Gtk::MenuItem.new("Exit")
     exit.signal_connect("activate") {
@@ -84,20 +85,6 @@ class UI < Editor::Window
 
     puts 'Loaded.'
   end
-
-  def self.keypress &blk
-      @@edit.signal_handler_disconnect @key_press_handler if @key_press_handler
-      @@edit.set_events Gdk::Event::BUTTON_PRESS_MASK | Gdk::Event::BUTTON_RELEASE_MASK | Gdk::Event::KEY_PRESS_MASK
-      @key_press_handler = @@edit.signal_connect("key_press_event") do |w, e|
-        k = Gdk::Keyval.to_name e.keyval
-        k = case
-          when k == 'Return'; "\n"
-          when k == 'Tab'; "\t"
-        else k
-        end
-        blk[k]
-      end
-    end
   
   def self.editor
     @@edit = Gtk::SourceView.new
@@ -105,6 +92,9 @@ class UI < Editor::Window
     @@edit.auto_indent = true
     @@edit.indent_on_tab = true
     @@edit.insert_spaces_instead_of_tabs = true
+    if defined?(@@filename)
+      @@edit.buffer.language = Gtk::SourceLanguageManager.new.get_language('text')
+    end
     @@edit_box.add(@@edit)
   end
   
@@ -117,20 +107,47 @@ class UI < Editor::Window
     @@open.destroy
     if defined?(@@filename)
       @@edit.buffer.text=File.open(@@filename, 'r').read
-      @@statusbar.push(0, 'Opened file: ' + @@filename)
+      @@edit.buffer.language = Gtk::SourceLanguageManager.new.get_language(Filetype.get(@@filename).to_s)
+      @@the_thing.set_tab_label(@@e,Gtk::Label.new(':-|'))#"#{File.basename(@@filename)} - (Editor)"
+      @@the_thing.set_page(1)
+      puts @@the_thing.get_tab_label_text(@@e)
+      puts @@the_thing.get_tab_label_text(@@w)
+      if @@edit.buffer.text == File.open(@@filename,'r').read
+        @@statusbar.push(0, 'Opened file: ' + @@filename)
+        @@files << {:file => @@filename}
+        @@filename = nil
+        p @@files
+      else
+        @@statusbar.push(0, 'Unable to open: \'' + @@filename + '\', is it a text file?')
+        @@filename = nil
+      end
+    end
+  end
+  
+  def self.save
+    if defined?(@@filename)
+      File.open(@@filename, 'w') do |f|
+        f.write @@edit.buffer.text
+      end
+      @@statusbar.push(0, 'Saved file: '+@@filename)
+    else
+      @@save = Gtk::FileChooserDialog.new("Open File",@@window,Gtk::FileChooser::ACTION_SAVE,nil,[Gtk::Stock::CANCEL, Gtk::Dialog::RESPONSE_CANCEL],[Gtk::Stock::OPEN, Gtk::Dialog::RESPONSE_ACCEPT])
+      @@save.show
+      @@save.destroy
     end
   end
   
   def self.welcome
-    Gtk::Label.new("You're using Editor.\n    By: Cyberarm")
+    @@welcome = Gtk::Label.new("Welcome to Editor.\nEnjoy.")
   end
 
   def self.tabs
     puts "Loading Tabs..."
     tabs = Gtk::Notebook.new
+    @@the_thing = tabs
     @@vbox.pack_start( tabs, true, true, 0)
-    tabs.prepend_page(editor)
-    tabs.prepend_page(welcome, Gtk::Label.new('Welcome'))
+    @@e = tabs.prepend_page(editor, Gtk::Label.new("Editor"))
+    @@w = tabs.prepend_page(welcome, Gtk::Label.new('Welcome'))
     puts "Loaded."
   end
   
