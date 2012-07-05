@@ -36,15 +36,15 @@ class UI < Editor::Window
 
     new_file = Gtk::MenuItem.new( "New" )
     new_file.signal_connect("activate") {
-      puts 'NEWFILE'
+      @@statusbar.push(0, 'Temporary file: FILENAME')
     }
     open = Gtk::MenuItem.new( "Open" )
     open.signal_connect("activate") {
-      puts "OPENFILE"
+      UI.open
     }
     save = Gtk::MenuItem.new( "Save" )
     save.signal_connect("activate") {
-      puts "SAVEFILE"
+      @@statusbar.push(0, 'Saved file: FILENAME')
     }
     exit = Gtk::MenuItem.new( "Exit" )
     exit.signal_connect("activate") {
@@ -71,6 +71,7 @@ class UI < Editor::Window
       about.set_authors(%w{Cyberarm})
       about.set_logo(Gdk::Pixbuf.new("D:/data/code/editor/static/icons/others/tools-hammer_and_nails.png"))
       about.show
+      about.signal_connect( "destroy" ) { Gtk.main_quit }
     }
     exit = Gtk::MenuItem.new("Exit")
     exit.signal_connect("activate") {
@@ -107,8 +108,21 @@ class UI < Editor::Window
     @@edit_box.add(@@edit)
   end
   
+  def self.open
+    @@open = Gtk::FileChooserDialog.new("Open File",@@window,Gtk::FileChooser::ACTION_OPEN,nil,[Gtk::Stock::CANCEL, Gtk::Dialog::RESPONSE_CANCEL],[Gtk::Stock::OPEN, Gtk::Dialog::RESPONSE_ACCEPT])
+    @@open.show
+    if @@open.run == Gtk::Dialog::RESPONSE_ACCEPT
+      @@filename=@@open.filename.gsub('\\', '/')
+    end
+    @@open.destroy
+    if defined?(@@filename)
+      @@edit.buffer.text=File.open(@@filename, 'r').read
+      @@statusbar.push(0, 'Opened file: ' + @@filename)
+    end
+  end
+  
   def self.welcome
-    Gtk::Label.new("You're using Editor.\nBy: Cyberarm")
+    Gtk::Label.new("You're using Editor.\n    By: Cyberarm")
   end
 
   def self.tabs
@@ -117,13 +131,12 @@ class UI < Editor::Window
     @@vbox.pack_start( tabs, true, true, 0)
     tabs.prepend_page(editor)
     tabs.prepend_page(welcome, Gtk::Label.new('Welcome'))
-    keypress {|k| if k == 'Control_L' and 's'; puts 'Save';else puts k;end}
     puts "Loaded."
   end
   
   def self.statusbar
     @@statusbar = Gtk::Statusbar.new
-    @@statusbar.push(0, 'Loaded. Ready.')
+    @@statusbar.push(0, 'Ready.')
     @@vbox.pack_start(@@statusbar, false, false, 0)
   end
 end
