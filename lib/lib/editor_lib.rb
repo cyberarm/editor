@@ -108,18 +108,13 @@ class UI < Editor::Window
     if defined?(@@filename)
       @@edit.buffer.text=File.open(@@filename, 'r').read
       @@edit.buffer.language = Gtk::SourceLanguageManager.new.get_language(Filetype.get(@@filename).to_s)
-      @@the_thing.set_tab_label(@@e,Gtk::Label.new(':-|'))#"#{File.basename(@@filename)} - (Editor)"
+      p @@the_thing.set_tab_label_text(@@e,"#{File.basename(@@filename)} - (Editor)")
       @@the_thing.set_page(1)
-      puts @@the_thing.get_tab_label_text(@@e)
-      puts @@the_thing.get_tab_label_text(@@w)
       if @@edit.buffer.text == File.open(@@filename,'r').read
         @@statusbar.push(0, 'Opened file: ' + @@filename)
-        @@files << {:file => @@filename}
-        @@filename = nil
-        p @@files
+        @@window.set_title("#{@@filename} - Editor")
       else
         @@statusbar.push(0, 'Unable to open: \'' + @@filename + '\', is it a text file?')
-        @@filename = nil
       end
     end
   end
@@ -133,19 +128,45 @@ class UI < Editor::Window
     else
       @@save = Gtk::FileChooserDialog.new("Open File",@@window,Gtk::FileChooser::ACTION_SAVE,nil,[Gtk::Stock::CANCEL, Gtk::Dialog::RESPONSE_CANCEL],[Gtk::Stock::OPEN, Gtk::Dialog::RESPONSE_ACCEPT])
       @@save.show
+      if @@save.run == Gtk::Dialog::RESPONSE_ACCEPT
+        @@filename = @@save.filename.gsub('\\', '/')
+      elsif @@save.run == Gtk::Dialog::RESPONSE_CANCEL
+        @@filename = nil
+      end
       @@save.destroy
+      @@the_thing.set_page(1)
+      @@window.set_title("#{@@filename} - Editor")
     end
   end
   
   def self.welcome
     @@welcome = Gtk::Label.new("Welcome to Editor.\nEnjoy.")
   end
+  
+  def self.settings
+    @@frame = Gtk::VBox.new(true,10)
+    @@frame.modify_base Gtk::STATE_NORMAL, Gdk::Color.parse('#333111222')
+    @@s = @@the_thing.prepend_page(@@frame, Gtk::Label.new("Settings"))
+    title = Gtk::Label.new('Settings')
+    title_width = Gtk::Label.new('Window Width')
+    title_height = Gtk::Label.new('Window Height')
+    width = Gtk::Entry.new
+    height = Gtk::Entry.new
+    @@frame.add(title)
+    @@frame.add(title_width)
+    @@frame.add(width)
+    @@frame.add(title_height)
+    @@frame.add(height)
+  end
 
   def self.tabs
     puts "Loading Tabs..."
     tabs = Gtk::Notebook.new
+    #p tabs.set_tab_reorderable(tabs, @@e)
+    tabs.set_enable_popup(true)
     @@the_thing = tabs
     @@vbox.pack_start( tabs, true, true, 0)
+    settings
     @@e = tabs.prepend_page(editor, Gtk::Label.new("Editor"))
     @@w = tabs.prepend_page(welcome, Gtk::Label.new('Welcome'))
     puts "Loaded."
